@@ -48,7 +48,7 @@ void lsh_loop(void)
 }
 
 #define LSH_RL_BUFSIZE 1024
-char *lsh_read_line(void)
+/*char *lsh_read_line(void)
 {
     int bufsize = LSH_RL_BUFSIZE;
     int position = 0;
@@ -86,10 +86,11 @@ char *lsh_read_line(void)
             }
         }
     }
-}
+}*/
 
-/*char *lsh_read_line(void)
+char *lsh_read_line(void)
 {
+    
     char *line = NULL;
     ssize_t bufsize = 0; // have getline allocate a buffer for us
     if (getline(&line, &bufsize, stdin) == -1)
@@ -106,7 +107,7 @@ char *lsh_read_line(void)
     }
     return line;
 }
-*/
+
 #define LSH_TOK_BUFSIZE 64
 #define LSH_TOK_DELIM " \t\r\n\a"
 char **lsh_split_line(char *line)
