@@ -22,6 +22,11 @@
 //strcmp()
 //strtok()
 
+void lsh_loop(void);
+char *lsh_read_line(void);
+char **lsh_split_line(char *);
+int lsh_execute(char **);
+
 int main(int argc, char **argv)
 {
 // Load config files, if any.
@@ -37,7 +42,7 @@ void lsh_loop(void)
     char **args;
     int status;
     do {
-        printf("> ");
+        printf("Su-Shell $ ");
         line = lsh_read_line();
         args = lsh_split_line(line);
         status = lsh_execute(args);
@@ -48,47 +53,9 @@ void lsh_loop(void)
 }
 
 #define LSH_RL_BUFSIZE 1024
-/*char *lsh_read_line(void)
-{
-    int bufsize = LSH_RL_BUFSIZE;
-    int position = 0;
-    char *buffer = malloc(sizeof(char) * bufsize);
-    int c;
-    if (!buffer) 
-    {
-        fprintf(stderr, "lsh: allocation error\n");
-        exit(EXIT_FAILURE);
-    }
-    while (1) 
-    {
-        // Read a character
-        c = getchar();
-        // If we hit EOF, replace it with a null character and return.
-        if (c == EOF || c == '\n') 
-        {
-            buffer[position] = '\0';
-            return buffer;      
-        } 
-        else 
-        {
-            buffer[position] = c;
-        }
-        position++;
-        // If we have exceeded the buffer, reallocate.
-        if (position >= bufsize) 
-        {
-            bufsize += LSH_RL_BUFSIZE;
-            buffer = realloc(buffer, bufsize);
-            if (!buffer) 
-            {
-                fprintf(stderr, "lsh: allocation error\n");
-                exit(EXIT_FAILURE);
-            }
-        }
-    }
-}*/
 
-char *lsh_read_line(void)
+
+char *lsh_read_line()
 {
     
     char *line = NULL;
@@ -110,6 +77,7 @@ char *lsh_read_line(void)
 
 #define LSH_TOK_BUFSIZE 64
 #define LSH_TOK_DELIM " \t\r\n\a"
+int no_elem_tok;
 char **lsh_split_line(char *line)
 {
     int bufsize = LSH_TOK_BUFSIZE, position = 0;
@@ -140,6 +108,7 @@ char **lsh_split_line(char *line)
     }
 
     tokens[position] = NULL;
+    no_elem_tok = position;
     return tokens;
 }
 
@@ -190,6 +159,10 @@ List of builtin commands, followed by their corresponding functions.
 char *builtin_str[] = {"cd","help","exit"};
 int (*builtin_func[]) (char **) = {&lsh_cd, &lsh_help, &lsh_exit};
 
+
+int red_out_init(char * nameFile,char * type);
+int red_out_end(char * nameFile,int fd);
+
 int lsh_num_builtins() 
 {
     return sizeof(builtin_str) / sizeof(char *);
@@ -233,6 +206,11 @@ int lsh_exit(char **args)
     return 0;
 }
 
+char *red_mod_srt[] = {"<",">",">>"};
+int len_red_mod() 
+{
+    return sizeof(red_mod_srt) / sizeof(char *);
+}
 int lsh_execute(char **args)
 {
     int i;
@@ -241,12 +219,83 @@ int lsh_execute(char **args)
         // An empty command was entered.
         return 1;
     }
+    int cambiofd = -1;
+    int archivo;
+    int result = -1;
+    int fd = dup(1);
+    
+    
+
+    for (i = 0; i < len_red_mod(); i++) 
+    {
+        if (strcmp(args[no_elem_tok-2], red_mod_srt[i]) == 0) 
+        {
+            cambiofd = 1;   
+            archivo = red_out_init(args[no_elem_tok-1],red_mod_srt[i]);
+        }
+    }
+
     for (i = 0; i < lsh_num_builtins(); i++) 
     {
         if (strcmp(args[0], builtin_str[i]) == 0) 
         {
-            return (*builtin_func[i])(args);
+            int result = (*builtin_func[i])(args);
         }
     }
-    return lsh_launch(args);
+    
+    if(result == -1)
+    {
+        result = lsh_launch(args);
+    }
+
+    if(cambiofd == 1)
+    {
+       for (i = 0; i < len_red_mod(); i++) 
+        {
+            if (strcmp(args[no_elem_tok-2], red_mod_srt[i]) == 0) 
+            {  
+                red_out_end(args[no_elem_tok-1],fd);
+            }
+        }
+    }
+    return result;
+}
+
+int red_out_init(char * nameFile,char * type)
+{
+    char *nombreArchivo = nameFile;
+    char *modo;
+  
+    if( type == ">")
+    {
+        modo = "w";// w es para sobrescribir, a+ es para añadir al existente 
+    } 
+    else if(type == ">>")
+    {
+        modo = "a+";// w es para sobrescribir, a+ es para añadir al existente
+    }
+   
+    int archivo = open(nombreArchivo, modo);
+
+    // Si por alguna razón el archivo no fue abierto, salimos inmediatamente
+    if (archivo == NULL) 
+    {
+        printf("Error abriendo archivo %s", nombreArchivo);
+        return 1;
+    }
+    dup2(archivo,1);
+    /*
+     * Escribir el contenido usando fprintf.
+     * */
+    
+    // Al final, cerramos el archivo
+    return archivo;
+}
+
+int red_out_end(char * nameFile,int fd)
+{
+    dup2(1,fd);
+    fclose(nameFile);
+    puts("Contenido escrito correctamente");
+    return 0;
 }
