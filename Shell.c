@@ -30,6 +30,7 @@ void lsh_loop(void);
 char *lsh_read_line(void);
 char **lsh_split_line(char *);
 int lsh_execute(char **);
+void lsh_pipes_handler(char *line); 
 
 int main(int argc, char **argv)
 {
@@ -48,13 +49,24 @@ void lsh_loop(void)
     do {
         printf("Su-Shell $ ");
         line = lsh_read_line();
+        if(strchr(line, '|')) 
+        {
+            lsh_pipes_handler(line);
+        }
+        else 
+        {
         args = lsh_split_line(line);
         status = lsh_execute(args);
-        free(line);
         free(args);
+        }
+        free(line);
+        
+        
     } 
     while (status);
 }
+
+
 
 #define LSH_RL_BUFSIZE 1024
 
@@ -78,6 +90,68 @@ char *lsh_read_line()
     }
     return line;
 }
+void lsh_pipes_handler(char *line) 
+{
+    //split
+    char *arg; 
+    char **args = malloc(LSH_RL_BUFSIZE);  
+    int count; 
+    int pipe_number = count_pipes(line); 
+    count = 0;  
+    while((arg = strtok_r(line, "|", &line))) 
+    {
+       args[count] = arg; 
+       count ++; 
+    }
+
+    //handler
+    int exit_value;  
+    int infd; 
+    int pipefd[2]; 
+
+    //loop through pipe commands 
+    for (int i = 0; i <= pipe_number; i++) 
+    {
+        //create new pipe for cmd i 
+        if (pipe(pipefd) == -1) { 
+            perror("pipe"); 
+            exit(EXIT_FAILURE); 
+        }
+        //fork child to handle cmd 
+        pid_t pid; 
+        pid = fork(); 
+        if (pid == -1) {
+            perror("fork"); 
+            return; 
+        } else if(pid == 0) {
+            //for all but first cmd, connect stdin with pipefd[0]
+            if(i != 0) { 
+                dup2(infd, 0); 
+            }
+            //for all but last cmd, connect stdout with pipefd[1] 
+            if (i != pipe_number) { 
+                dup2(pipefd[1], 1); 
+            }
+            lsh_execute(lsh_split_line(args[i])); 
+            exit(1); 
+        } else {
+            //wait and store pipefd[0] for next iteration 
+            wait(&exit_value); 
+            infd = pipefd[0]; 
+            close(pipefd[1]); 
+        }
+    }
+    return; 
+}
+int count_pipes(char *args) 
+{
+    int count = 0; 
+    for (int i=0; i < strlen(args); i++) {
+        count += (args[i] == '|');
+    }
+    return count; 
+}
+
 
 #define LSH_TOK_BUFSIZE 64
 #define LSH_TOK_DELIM " \t\r\n\a"
@@ -225,7 +299,7 @@ int lsh_execute(char **args)
     int result;
     int fd = dup(1);
 
-   
+    
     if(no_elem_tok>2)
     {
         for (int k = 0; k < len_red_mod(); k++) 
@@ -308,6 +382,9 @@ int lsh_execute(char **args)
     }
     return result;
 }
+
+
+
 
 int red_out_init(char * nameFile,char * type)
 {
