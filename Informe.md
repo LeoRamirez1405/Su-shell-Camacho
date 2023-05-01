@@ -66,7 +66,7 @@ void loop(void)
 
 Este método se utiliza para ejecutar una shell interactiva que lee la entrada del usuario, analiza la existencia de comentarios, divide la entrada en tokens, ejecuta los comandos ingresados por el usuario y repite el proceso hasta que el usuario decide salir de la shell. La función **pipes_handler()** se utiliza para manejar los comandos que contienen pipes (|), mientras que la función **execute()** se utiliza para ejecutar los comandos ingresados por el usuario.
 
-La función **strchr(line, '|')** en C se utiliza para buscar la primera aparición de un carácter específico (en este caso, '|') en una cadena de caracteres (en este caso, "line").
+La función **strchr(line, '|')** en C se utiliza para buscar la primera aparición de un caracter específico (en este caso, '|') en una cadena de caracteres (en este caso, "line").
 
 
 &nbsp;
@@ -94,9 +94,9 @@ char *rev_comment(char * line)
 
  Esta función se utiliza para eliminar comentarios de una línea de texto suministrada por el usuario. Se recorre la cadena de caracteres en busca del caracter **"#"**  que esté precedido por un espacio en blanco o que esté al principio de la línea. Cuando se encuentra un comentario, la función utiliza la función **malloc** para asignar memoria para una nueva cadena de caracteres **"newline"** que contiene todos los caracteres de **line** antes del comentario.
 
-La función utiliza la función **strncpy** para copiar los caracteres de line a **"newline"**, deteniéndose en el carácter **"#"** que indica el inicio del comentario.
+La función utiliza la función **strncpy** para copiar los caracteres de line a **"newline"**, deteniéndose en el caracter **"#"** que indica el inicio del comentario.
 
-Para concluir la función devuelve la cadena de carac6teres **"newline"** desprovista de comentarios.
+Para concluir la función devuelve la cadena de caracteres **"newline"** desprovista de comentarios.
 
 
 &nbsp;
@@ -125,7 +125,7 @@ char *read_line()
 
 Esta función se utiliza para leer una línea completa de entrada desde stdin y manejar posibles errores que puedan ocurrir durante la lectura.
 
-La función **getline(&line, &bufsize, stdin)** lee una línea completa de entrada desde stdin y la almacena en la variable **line**, que es un puntero a un puntero a un carácter.
+La función **getline(&line, &bufsize, stdin)** lee una línea completa de entrada desde stdin y la almacena en la variable **line**, que es un puntero a un puntero a un caracter.
 
 La función **feof(stdin)** se utiliza para verificar si se ha alcanzado el final del flujo de entrada stdin.
 
@@ -365,9 +365,9 @@ Finalmente, la función devuelve el resultado de la ejecución del comando y res
 &nbsp;
 #### Redireccionamientos :
 
-*in* : Simboliza que se esta redireccionando la entrada.
+*in* : Simboliza que se está redireccionando la entrada.
 
-*out* : Simboliza que se esta redireccionado la salida.
+*out* : Simboliza que se está redireccionado la salida.
 
  *init* : Se cambia la entrada estándar original por otra entrada dada directamente por el usuario o como consecuencia de la ejecución de un comando.
 
