@@ -429,7 +429,7 @@ Esta función redirige la salida estándar a un archivo especificado por el usua
 
 La función recibe dos parámetros: **nameFile**, que es una cadena de caracteres que representa el nombre del archivo que se va a crear o sobrescribir, y **type**, que es una cadena de caracteres que indica el tipo de redirección de salida que se debe realizar (> para sobrescribir el archivo o >> para agregar al archivo existente).
 
-Luego se determina el tipo de redirección que se debe realizar. Si **type** es igual a **">"**, entonces la función **open** se utiliza para crear un nuevo archivo o sobrescribir un archivo existente. Si type es igual a **">>"**, entonces la función open se utiliza para agregar datos al final de un archivo existente o crear el archivo y sobrescribirlo en caso de que este no exista con anterioridad.
+Luego se determina el tipo de redirección que se debe realizar. Si **type** es igual a **">"**, entonces la función **open** se utiliza para crear un nuevo archivo o sobrescribir un archivo existente. Si type es igual a **">>"**, entonces la función open se utiliza para agregar datos al final de un archivo existente o crear el archivo en caso de que este no exista con anterioridad.
 
 Si la función **open** no puede abrir el archivo especificado, se imprime un mensaje de error y la función devuelve 1.
 
