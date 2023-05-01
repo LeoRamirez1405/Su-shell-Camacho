@@ -3,7 +3,6 @@
 #include <unistd.h>
 //chdir()
 //fork()
-//exec()
 //pid_t
 #include <stdlib.h>
 //malloc()
@@ -26,61 +25,71 @@
 //open()
 //close()
 
-void lsh_loop(void);
-char *lsh_read_line(void);
-char **lsh_split_line(char *);
-int lsh_execute(char **);
-void lsh_pipes_handler(char *line); 
+void loop(void);
+char *read_line(void);
+char **split_line(char *);
+int execute(char **);
+void pipes_handler(char *line); 
+char *rev_comment(char * line);
+
+
+
+int red_out_init(char * nameFile,char * type);
+int red_out_end(int nameFile,int fd);
+int red_in_init(char * nameFile);
+int red_in_end(int nameFile,int fd);
+char *red_mod_srt[] = {">",">>"};
+
+int cd(char **args);
+int help(char **args);
+int bi_exit(char **args);
+char *builtin_str[] = {"cd","help","exit"};
+int (*builtin_func[]) (char **) = {&cd, &help, &exit};
+
+#define RL_BUFSIZE 1024
+#define TOK_BUFSIZE 64
+#define TOK_DELIM " \t\r\n\a"
+int no_elem_tok;
+
 
 int main(int argc, char **argv)
 {
-// Load config files, if any.
-// Run command loop.
-    lsh_loop();
-// Perform any shutdown/cleanup.
+    loop();
     return EXIT_SUCCESS;
 }
 
-void lsh_loop(void)
+void loop(void)
 {
     char *line;
     char **args;
     int status;
     do {
         printf("Su-Shell $ ");
-        line = lsh_read_line();
+        line = rev_comment(read_line());
         if(strchr(line, '|')) 
         {
-            lsh_pipes_handler(line);
+            pipes_handler(line);
         }
         else 
         {
-        args = lsh_split_line(line);
-        status = lsh_execute(args);
+        args = split_line(line);
+        status = execute(args);
         free(args);
         }
-        free(line);
-        
-        
+        free(line);  
     } 
     while (status);
 }
 
-
-
-#define LSH_RL_BUFSIZE 1024
-
-
-char *lsh_read_line()
+char *read_line()
 {
-    
     char *line = NULL;
-    ssize_t bufsize = 0; // have getline allocate a buffer for us
+    ssize_t bufsize = 0; 
     if (getline(&line, &bufsize, stdin) == -1)
     {
         if (feof(stdin)) 
         {
-            exit(EXIT_SUCCESS); // We recieved an EOF
+            exit(EXIT_SUCCESS); 
         } 
         else 
         {
@@ -90,11 +99,29 @@ char *lsh_read_line()
     }
     return line;
 }
-void lsh_pipes_handler(char *line) 
+char *rev_comment(char * line)
+{
+    int cantchar = strlen(line);
+    char * newline = line;
+
+    for (int i = 0; i < cantchar; i++)
+    {
+        
+        if(line[i] == '#' && (i == 0 || line[i-1] == ' '))
+        {
+            newline = (char*) malloc((i * sizeof(char)));
+            newline = strncpy(newline,line,i);
+            break;
+        }
+    }  
+    return newline;
+}
+
+void pipes_handler(char *line) 
 {
     //split
     char *arg; 
-    char **args = malloc(LSH_RL_BUFSIZE);  
+    char **args = malloc(RL_BUFSIZE);  
     int count; 
     int pipe_number = count_pipes(line); 
     count = 0;  
@@ -109,33 +136,35 @@ void lsh_pipes_handler(char *line)
     int infd; 
     int pipefd[2]; 
 
-    //loop through pipe commands 
+    //Ciclo por todos los comandos entre pipes
     for (int i = 0; i <= pipe_number; i++) 
     {
-        //create new pipe for cmd i 
+        //Crea un nuevo pipe 
         if (pipe(pipefd) == -1) { 
             perror("pipe"); 
             exit(EXIT_FAILURE); 
         }
-        //fork child to handle cmd 
+        //Hacemos fork 
         pid_t pid; 
         pid = fork(); 
         if (pid == -1) {
             perror("fork"); 
             return; 
-        } else if(pid == 0) {
-            //for all but first cmd, connect stdin with pipefd[0]
+        } else if(pid == 0)  //Hijo
+        { 
+            //Para todos menos el primer comando, conecta stdin con pipefd[0]
             if(i != 0) { 
                 dup2(infd, 0); 
             }
-            //for all but last cmd, connect stdout with pipefd[1] 
+            //Para todos menos el ultimo comando, conecta stdout con pipefd[1] 
             if (i != pipe_number) { 
                 dup2(pipefd[1], 1); 
             }
-            lsh_execute(lsh_split_line(args[i])); 
+            //Ejecutar el comando actual
+            execute(split_line(args[i])); 
             exit(1); 
         } else {
-            //wait and store pipefd[0] for next iteration 
+            //Espera a que termine el hijo, guarda pipefd[0] para la siguiente iteracion y cierra pipefd[1]
             wait(&exit_value); 
             infd = pipefd[0]; 
             close(pipefd[1]); 
@@ -143,6 +172,7 @@ void lsh_pipes_handler(char *line)
     }
     return; 
 }
+
 int count_pipes(char *args) 
 {
     int count = 0; 
@@ -152,21 +182,17 @@ int count_pipes(char *args)
     return count; 
 }
 
-
-#define LSH_TOK_BUFSIZE 64
-#define LSH_TOK_DELIM " \t\r\n\a"
-int no_elem_tok;
-char **lsh_split_line(char *line)
+char **split_line(char *line)
 {
-    int bufsize = LSH_TOK_BUFSIZE, position = 0;
+    int bufsize = TOK_BUFSIZE, position = 0;
     char **tokens = malloc(bufsize * sizeof(char*));
     char *token;
     if (!tokens) 
     {
-        fprintf(stderr, "lsh: allocation error\n");
+        fprintf(stderr, "Error al hacer malloc\n");
         exit(EXIT_FAILURE);
     }
-    token = strtok(line, LSH_TOK_DELIM);
+    token = strtok(line, TOK_DELIM);
     
     while (token != NULL) 
     {
@@ -174,15 +200,15 @@ char **lsh_split_line(char *line)
         position++;
         if (position >= bufsize) 
         {
-            bufsize += LSH_TOK_BUFSIZE;
+            bufsize += TOK_BUFSIZE;
             tokens = realloc(tokens, bufsize * sizeof(char*));
             if (!tokens) 
             {
-                fprintf(stderr, "lsh: allocation error\n");
+                fprintf(stderr, "Error al hacer realloc\n");
                 exit(EXIT_FAILURE);
             }
         }
-        token = strtok(NULL, LSH_TOK_DELIM);
+        token = strtok(NULL, TOK_DELIM);
     }
 
     tokens[position] = NULL;
@@ -190,14 +216,14 @@ char **lsh_split_line(char *line)
     return tokens;
 }
 
-int lsh_launch(char **args)
+int launch(char **args)
 {
     pid_t pid, wpid;
     int status;    
     pid = fork();
     if (pid == 0) 
     {
-        // Child process
+        //Proceso hijo
         if (execvp(args[0], args) == -1) 
         {
             perror("Mensaje de error:");
@@ -207,13 +233,12 @@ int lsh_launch(char **args)
 
     else if (pid < 0) 
     {
-    // Error forking
-    perror("lsh");
+    perror("Error en pid haciendo fork: ");
     } 
 
     else 
     {
-    // Parent process
+    //Proceso padre
         do 
         {
             wpid = waitpid(pid, &status, WUNTRACED);
@@ -224,71 +249,55 @@ int lsh_launch(char **args)
     return 1;
 }
 
-
-/*
-Function Declarations for builtin shell commands:
-*/
-int lsh_cd(char **args);
-int lsh_help(char **args);
-int lsh_exit(char **args);
-/*
-List of builtin commands, followed by their corresponding functions.
-*/
-char *builtin_str[] = {"cd","help","exit"};
-int (*builtin_func[]) (char **) = {&lsh_cd, &lsh_help, &lsh_exit};
-
-
-int red_out_init(char * nameFile,char * type);
-int red_out_end(int nameFile,int fd);
-int red_in_init(char * nameFile);
-int red_in_end(int nameFile,int fd);
-
-int lsh_num_builtins() 
+int num_builtins() 
 {
     return sizeof(builtin_str) / sizeof(char *);
 }
-int lsh_cd(char **args)
+
+int cd(char **args)
 {
     if (args[1] == NULL) 
     {
-        fprintf(stderr, "lsh: expected argument to \"cd\"\n");
+        fprintf(stderr, "Se esperaban argumentos para \"cd\"\n");
     } 
     else 
     {
         if (chdir(args[1]) != 0) 
         {
-            perror("lsh");
+            perror("Error:");
         }
     }  
     return 1;
 }
-int lsh_help(char **args)
+
+int help(char **args)
 {
     int i;
-    printf("Leonardo Ramirez Calatayud\n Naommi Lahera Champagne\nYisell Martinez Noa");
+    printf("Leonardo Ramirez Calatayud\nNaommi Lahera Champagne\nYisell Martinez Noa\n");
     printf("Los built in son:\n");
     
-    for (i = 0; i < lsh_num_builtins(); i++) 
+    for (i = 0; i < num_builtins(); i++) 
     {
         printf(" %s\n", builtin_str[i]);
     }
     return 1;
 }
-int lsh_exit(char **args)
+
+int bi_exit(char **args)
 {
     return 0;
 }
 
-char *red_mod_srt[] = {">",">>"};
 int len_red_mod() 
 {
     return sizeof(red_mod_srt) / sizeof(char *);
 }
-int lsh_execute(char **args)
+
+int execute(char **args)
 {
     if (args[0] == NULL) 
     {
-        // An empty command was entered.
+        //Linea vacia.
         return 1;
     }
     int cambiofd = -1;
@@ -310,14 +319,13 @@ int lsh_execute(char **args)
                 cambiofd = 1;   
                 archivo = red_out_init(args[no_elem_tok-1],red_mod_srt[k]);
 
-               
-
                 for (int i = 0; i < no_elem_tok - 2; i++) 
                 {
                     newargs[i] = (char*) malloc((strlen(args[i]) + 1) * sizeof(char));
                     strncpy(newargs[i], args[i], strlen(args[i]));
                     newargs[i][strlen(args[i])] = '\0';
                 }
+
                 newargs[no_elem_tok - 2] = NULL;    
                 args = newargs;
                 no_elem_tok = no_elem_tok -2;
@@ -358,7 +366,7 @@ int lsh_execute(char **args)
     }
 
 
-    for (int i = 0; i < lsh_num_builtins(); i++) 
+    for (int i = 0; i < num_builtins(); i++) 
     {
         if (strcmp(args[0], builtin_str[i]) == 0) 
         {
@@ -369,7 +377,7 @@ int lsh_execute(char **args)
 
         if(mask_result == -1)
         {
-            result = lsh_launch(args);
+            result = launch(args);
         }
 
     if(cambiofd == 1)
@@ -383,9 +391,6 @@ int lsh_execute(char **args)
     return result;
 }
 
-
-
-
 int red_out_init(char * nameFile,char * type)
 {
     char *nombreArchivo = nameFile;
@@ -393,13 +398,11 @@ int red_out_init(char * nameFile,char * type)
     if( type == ">")
     {
         archivo = open(nombreArchivo, O_WRONLY | O_CREAT | O_TRUNC,0644);
-
     } 
     else if(type == ">>")
     { 
         archivo = open(nombreArchivo, O_APPEND | O_CREAT | O_WRONLY,0644);
     }
-   
     // Si por alguna razón el archivo no fue abierto, salimos inmediatamente
     if (archivo == -1) 
     {
@@ -410,6 +413,7 @@ int red_out_init(char * nameFile,char * type)
     
     return archivo;
 }
+
 int red_in_init(char * nameFile)
 {
     char *nombreArchivo = nameFile;
@@ -423,12 +427,14 @@ int red_in_init(char * nameFile)
     dup2(archivo,0);
     return archivo;
 }
+
 int red_in_end(int nameFile,int fd)
 {
     dup2(fd,0);
     close(nameFile);
     return 0;
 }
+
 int red_out_end(int nameFile,int fd)
 {
     dup2(fd,1);
